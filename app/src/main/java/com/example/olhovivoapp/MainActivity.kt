@@ -4,9 +4,14 @@ import android.os.Bundle
 import android.util.Log
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import okhttp3.*
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonParser
+import okhttp3.Callback
 import okhttp3.JavaNetCookieJar
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import java.io.IOException
 import java.net.CookieManager
 import java.net.CookiePolicy
@@ -28,11 +33,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // usa seu layout com o TextView
         setContentView(R.layout.activity_main)
         tvOutput = findViewById(R.id.tvOutput)
 
-        // inicia a autenticação
         autenticar { sucesso ->
             runOnUiThread {
                 if (sucesso) {
@@ -54,12 +57,12 @@ class MainActivity : AppCompatActivity() {
             .build()
 
         client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
+            override fun onFailure(call: okhttp3.Call, e: IOException) {
                 Log.e("OlhoVivo", "Erro no login: ${e.message}")
                 callback(false)
             }
 
-            override fun onResponse(call: Call, response: Response) {
+            override fun onResponse(call: okhttp3.Call, response: Response) {
                 response.use {
                     val body = it.body?.string()?.trim().orEmpty()
                     Log.d("OlhoVivo", "Login: $body")
@@ -74,20 +77,23 @@ class MainActivity : AppCompatActivity() {
         val request = Request.Builder().url(url).get().build()
 
         client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
+            override fun onFailure(call: okhttp3.Call, e: IOException) {
                 Log.e("OlhoVivo", "Erro buscarLinhas: ${e.message}")
                 runOnUiThread {
                     tvOutput.append("\nErro ao buscar linhas: ${e.message}")
                 }
             }
 
-            override fun onResponse(call: Call, response: Response) {
+            override fun onResponse(call: okhttp3.Call, response: Response) {
                 response.use {
-                    val json = it.body?.string().orEmpty()
-                    Log.i("OlhoVivo", "Linhas: $json")
+                    val rawJson = it.body?.string().orEmpty()
+                    // Formata JSON usando Gson
+                    val parser = JsonParser.parseString(rawJson)
+                    val prettyJson = GsonBuilder().setPrettyPrinting().create().toJson(parser)
+
+                    Log.i("OlhoVivo", "Linhas formatadas: $prettyJson")
                     runOnUiThread {
-                        // mostra o JSON bruto (ou você pode formatar)
-                        tvOutput.append("\nLinhas encontradas:\n$json")
+                        tvOutput.append("\nLinhas encontradas:\n$prettyJson")
                     }
                 }
             }
